@@ -56,13 +56,13 @@ Zoomed in:
 
 *Figure 4 : Distribution des erreurs de reconstruction pour les données normales et anormales.*
 
-* **Évaluation :** Le seuil est validé par la courbe de la F-mesure (F1-score) en fonction du seuil appliqué 
+* **Évaluation :** Le seuil est validé par la courbe de la F-measure (F1-score) en fonction du seuil appliqué 
 
-![F-Mesure Formula](./images/FMesureFormula.png)
+![F-Measure Formula](./images/FmesureFormula.png)
 
-![F-Mesure](./images/FMesure.png)
+![F-Measure](./images/FMesure.png)
 
-*Figure 5 : Évolution de la F-mesure et de l'Accuracy selon le seuil sélectionné.*
+*Figure 5 : Évolution de la F-measure et de l'Accuracy selon le seuil sélectionné.*
 
 ## 5. Résultats Obtenus
 
