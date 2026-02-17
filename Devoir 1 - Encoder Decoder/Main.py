@@ -165,8 +165,5 @@ for k in K:
         plt.savefig(f'./figures/histogram/histogramK{k}_all.png')
 
         plt.show()
-
-
-
         test_loss /= len(testloader)
     print(f"test loss : {test_loss}")
