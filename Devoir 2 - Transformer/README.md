@@ -5,7 +5,7 @@
 
 ---
 
-## 📝 Description du Projet
+## Description du Projet
 Ce projet implémente une architecture de type **Transformer (Décodeur uniquement)** à partir de zéro. L'objectif est d'entraîner un modèle de langage capable de générer du texte dans le style de Shakespeare, en utilisant le jeu de données `tiny_shakespeare.txt`.
 
 ## 1. Conversion du texte en jetons (Tokenization)
@@ -14,7 +14,7 @@ Avant l'entraînement, les données brutes subissent un prétraitement rigoureux
 ![Conversion du texte en séquences](./images/Word2Seq.png)
 
 * **Répartition des données (Split 90/5/5) :** Contrairement à la répartition standard (70/15/15), nous avons opté pour **90% d'entraînement, 5% de validation et 5% de test**.  
-  *Justification :* Le jeu de données `tiny_shakespeare` étant relativement petit, nous avons maximisé le volume de données d'entraînement pour permettre au modèle de mieux capter les subtilités du langage et d'améliorer sa capacité de généralisation.
+* Le jeu de données `tiny_shakespeare` étant relativement petit, nous avons maximisé le volume de données d'entraînement pour permettre au modèle de mieux capter les subtilités du langage et d'améliorer sa capacité de généralisation.
 
 * **Nettoyage et Vocabulaire :** Conversion en minuscules, isolation de la ponctuation et création d'un index basé sur l'ensemble d'entraînement.
 * **Séquençage et Chevauchement :** Découpage du texte en séquences de longueur fixe ($N=64$) avec une superposition (overlap) pour augmenter le nombre d'exemples.
