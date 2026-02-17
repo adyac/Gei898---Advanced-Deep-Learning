@@ -1,0 +1,7 @@
+﻿.venv1/
+.venv/
+.env/
+__pycache__/
+*.pth
+*.pt
+.idea/
