@@ -70,3 +70,5 @@ Les performances finales démontrent la haute précision du modèle pour ce jeu 
 * **F-score :** 0,9912
 * **Accuracy :** 98,62 %
 * **Test Loss finale :** 2,5372
+* 
+![Results](./images/Resultats.png)
