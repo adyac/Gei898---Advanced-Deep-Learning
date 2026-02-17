@@ -13,14 +13,16 @@ La sélection des paramètres repose sur une analyse statistique des données po
 * **Epochs :** L'entraînement est réalisé sur **80 époques**. La courbe des pertes montre que le plateau de convergence est atteint vers la 76ème époque 
 
 ![Loss Curve](./images/Epoch_vs_MSE_loss.png)
-  *Figure 1 : Évolution de la perte MSE (K=6) montrant la stabilisation du modèle.*
+
+*Figure 1 : Évolution de la perte MSE (K=6) montrant la stabilisation du modèle.*
 
 ## 2. Architecture du Réseau
 
 Le réseau adopte une structure symétrique en "sablier" pour extraire les caractéristiques essentielles des signaux 
 
 ![Architecture](./images/architecture.png)
-  *Figure 2 : Schéma de l'architecture du réseau Encodeur-Décodeur.*
+
+*Figure 2 : Schéma de l'architecture du réseau Encodeur-Décodeur.*
 
 * **Dimensions des entrées/sorties :** Entrées de $1 \times 9$ et sorties de $1 \times 9$ 
 * **Encodeur :** Trois couches linéaires progressives (9 → 8 → 7 → 6) 
@@ -51,12 +53,16 @@ La classification finale repose sur le calcul de l'erreur de reconstruction (MSE
 Zoomed in:
 
 ![Histogramme des pertes](./images/histogramme_pertes2.png)
-  *Figure 4 : Distribution des erreurs de reconstruction pour les données normales et anormales.*
+
+*Figure 4 : Distribution des erreurs de reconstruction pour les données normales et anormales.*
 
 * **Évaluation :** Le seuil est validé par la courbe de la F-mesure (F1-score) en fonction du seuil appliqué 
 
+![F-Mesure Formula](./images/FMesureFormula.png)
+
 ![F-Mesure](./images/FMesure.png)
-  *Figure 5 : Évolution de la F-mesure et de l'Accuracy selon le seuil sélectionné.*
+
+*Figure 5 : Évolution de la F-mesure et de l'Accuracy selon le seuil sélectionné.*
 
 ## 5. Résultats Obtenus
 
