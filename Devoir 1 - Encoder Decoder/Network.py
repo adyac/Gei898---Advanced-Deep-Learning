@@ -1,27 +1,25 @@
-import torch
 import torch.nn as nn
 
-class Autoencoder(nn.Module):
-    def __init__(self, input_dim=9):
-        # Super fait en sorte que la classe Autoencoder peut
-        # utiliser les méthodes de la classe fondatrice Module
-        super(Autoencoder, self).__init__()
-
-        self.encoder = nn.Sequential(
-            nn.Linear(input_dim, 32),
+class Net(nn.Module):
+    def __init__(self, H1, H2, K, D=9):
+        super().__init__()
+        H3 = H2
+        H4 = H1
+        self.encodeur = nn.Sequential(
+            nn.Linear(D, H1),
             nn.ReLU(),
-            nn.Linear(32, 6),
+            nn.Linear(H1, H2),
+            nn.ReLU(),
+            nn.Linear(H2, K)
         )
-
-        self.decoder = nn.Sequential(
-            nn.Linear(6, 7),
+        self.decodeur = nn.Sequential(
+            nn.Linear(K, H3),
             nn.ReLU(),
-            nn.Linear(7, 8),
+            nn.Linear(H3, H4),
             nn.ReLU(),
-            nn.Linear(8, input_dim)
+            nn.Linear(H4, D)
         )
-
-    def forward(self, x):
-        z = self.encoder(x)
-        y_hat = self.decoder(z)
-        return y_hat
+    def forward(self,x):
+        latent_rep = self.encodeur(x)
+        reconstruct = self.decodeur(latent_rep)
+        return latent_rep,reconstruct

@@ -1,94 +1,172 @@
-import torch
-import torch.nn as nn
-import torch.optim as optim
 import numpy as np
-import pandas as pd
-from Network import Autoencoder
 import matplotlib.pyplot as plt
+import torch
+from Network import *
+from Helpers import *
+from torch.utils.data import TensorDataset, DataLoader
+import torch.optim as optim
 
-def prepare_data(train_path, test_path):
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Using device:", device)
 
-    column_names = ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "classe"]
-    train_data = pd.read_csv(train_path, sep=' ', names=column_names)
-    test_data = pd.read_csv(test_path, sep=' ', names=column_names)
-
-    X_train = train_data[train_data['classe'] == 1].drop(columns=['classe']).values
-    # Normalize Test and Train values
-    means = np.mean(X_train, axis=0) # Avec axis = 0, on calcule means et stds de chaque colonne s1,s2...
-    stds = np.std(X_train, axis=0)
-    X_train_norm = (X_train - means) / (stds + 1e-8)
-
-    X_test = test_data.drop(columns=['classe']).values  # Retirer la dernière colonne
-    X_test_norm = (X_test - means) / (stds + 1e-8)      # normaliser valeurs de test aussi, car modèle entrainé sur valeurs normalisées
-                                                        # utiliser means et stds trouvés sur X_train sur X_test pour garder mm echelle de normalisation
-    y_test = test_data['classe'].values   # Garder les étiquettes de classe pour calculer F-mesure plus tard
-
-    return X_train_norm, X_test_norm, y_test, means, stds
-
-# Load data
-# Should use a data loader
-X_train_norm, X_test_norm, y_test, means, stds = prepare_data('dataset/shuttle.trn', 'dataset/shuttle.tst')
-
-# Convertir en tenseur PyTorch
-X_train_tensor = torch.tensor(X_train_norm, dtype=torch.float32)
-X_test_tensor = torch.tensor(X_test_norm, dtype=torch.float32)
-
-# Initialize
-model = Autoencoder()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001) #Choisir Adam car utilise effet d'inertie, se base sur pentes précédentes
-criterion = torch.nn.MSELoss()
+K = [6]
 batch_size = 256
+lr = 0.0015
+epochs = 80
+threshold = 0.03
+H1 = 8
+H2 = 7
+model_path = "./model/model.pt"
+seed = 2
+train = False
+torch.manual_seed(seed)
+train_data = np.loadtxt("./dataset/shuttle.trn", dtype=np.float32)
+test_data = np.loadtxt("./dataset/shuttle.tst", dtype=np.float32)
 
-# Train loop
-num_epochs = 50
-for epoch in range(num_epochs):
-    model.train()
+# Split inputs / targets
+train_inputs  = train_data[:, :-1]
+train_targets = train_data[:, -1].astype(np.int64)
 
-    #Feed batch size to model not all of them
-    output = model(X_train_tensor)
-    loss = criterion(output, X_train_tensor)  # Calcul diff entre entrée et sortie
+# Filter class 1
+valid_train_idx    = np.where(train_targets == 1)[0]
+valid_train_inputs = train_inputs[valid_train_idx]
+valid_train_inputs, mu, sigma = normalize(valid_train_inputs)
+test_inputs = (test_data[:, :-1] - mu) / sigma
+valid_train_targets = train_targets[valid_train_idx]
 
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
+# Convert to tensors
+valid_train_inputs  = torch.from_numpy(valid_train_inputs)
+valid_train_targets = torch.from_numpy(valid_train_targets).long()
+test_inputs  = torch.from_numpy(test_inputs).float()
+test_targets = torch.from_numpy(test_data[:, -1]).long()
 
-    if (epoch + 1) % 10 == 0:
-        print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
-    print("Entraînement terminé. Calcul du seuil optimal...")
+print(f"Total train data given : {len(train_targets)}")
+print(f"Valid train data : {len(valid_train_inputs)}")
+print(f"thrown in trash : {len(train_targets) -len(valid_train_inputs) }")
 
-# Test mode
-model.eval()
-with torch.no_grad():
-    reconstruction = model(X_test_tensor)
-    L = torch.mean((X_test_tensor - reconstruction) ** 2, dim=1).numpy()
+valid_train_dataset = TensorDataset(valid_train_inputs, valid_train_targets)
+valid_test_dataset  = TensorDataset(test_inputs, test_targets)
 
-# Tracer seuil vs F1
-thresholds = np.linspace(np.min(L), np.max(L), 200)
-f1_scores = []
-y_true = (y_test != 1).astype(int)
+trainloader = torch.utils.data.DataLoader(valid_train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+testloader = torch.utils.data.DataLoader(valid_test_dataset, batch_size=1, shuffle=False, num_workers=0)
 
-# 3. Calculer la F1 pour chaque seuil
-for T0 in thresholds:
-    y_pred = (L >= T0).astype(int)
+for k in K:
+    train_loss_history = []
+    test_loss_history = []
+    model = Net(H1=H1, H2=H2, K=k).to(device)
+    loss_fn = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=lr)
 
-    tp = np.sum((y_pred == 1) & (y_true == 1))
-    fp = np.sum((y_pred == 1) & (y_true == 0))
-    fn = np.sum((y_pred == 0) & (y_true == 1))
+    for epoch in range(epochs):
+        model.train()
+        epoch_loss = 0
+        for data, _ in trainloader:
+            data = data.to(device)
+            optimizer.zero_grad()
 
-    precision = tp / (tp + fp + 1e-8)
-    recall = tp / (tp + fn + 1e-8)
-    f1 = (2 * precision * recall) / (precision + recall + 1e-8)
-    f1_scores.append(f1)
+            data_latent, data_reconstruct = model(data)
+            loss = loss_fn(data_reconstruct, data)
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
 
-# 4. Tracer le graphique
-plt.figure(figsize=(10, 6))
-plt.plot(thresholds, f1_scores, label='F1-Score', color='blue', linewidth=2)
-plt.axvline(thresholds[np.argmax(f1_scores)], color='red', linestyle='--',
-                label=f'Best T0: {thresholds[np.argmax(f1_scores)]:.4f}')
+        epoch_loss /= len(trainloader)
+        train_loss_history.append(epoch_loss)
 
-plt.title('Évolution de la F-mesure en fonction du seuil T0')
-plt.xlabel('Seuil (Erreur de reconstruction L)')
-plt.ylabel('Score F1')
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.show()
+        model.eval()
+        valid_loss = 0
+        print(f"#################################################\n"
+              f"K = {k}\nepoch : {epoch + 1}     train loss :   {epoch_loss}\n")
+
+    fig_loss_valid, ax_loss_valid = plt.subplots(1, 1)
+
+    plot_epochs = np.arange(1, len(train_loss_history) + 1)
+
+    ax_loss_valid.plot(plot_epochs, train_loss_history, label="Train loss")
+
+    ax_loss_valid.set_xlabel("Epoch")
+    ax_loss_valid.set_ylabel("MSE loss")
+    ax_loss_valid.set_title(f"Loss curve (K={k})")
+    ax_loss_valid.grid(True)
+    plt.savefig(f'./figures/loss_curve_K{k}.png')
+    plt.show()
+
+    model.eval()
+    test_loss = 0
+    normal_losses = []
+    abnormal_losses = []
+    FP = 0
+    VP = 0
+    FN = 0
+    VN = 0
+    with torch.no_grad():
+        for data, label in testloader:
+            data = data.to(device)
+            label = label.to(device)
+            data_latent, data_reconstruct = model(data)
+            loss = loss_fn(data_reconstruct, data)
+
+            test_loss += loss.item()
+            if loss.item() <= threshold:
+                pred = "normal"
+            else:
+                pred = "abnormal" # abnormal
+
+            if pred == "normal" and label.item() ==1 :
+                VP += 1
+            if pred == "normal" and label.item() != 1:
+                FP += 1
+            if pred == "abnormal" and label.item() == 1:
+                FN += 1
+            if pred == "abnormal" and label.item() != 1:
+                VN +=1
+            #for plotting
+            if label.item() == 1:
+                normal_losses.append(loss.item())
+            else:
+                abnormal_losses.append(loss.item())
+
+        F1 = (2*VP)/(2*VP + FP + FN)
+        accuracy = (VP+VN)/(VP+FP+FN+VN)
+        print (f"###########################################################################\n"
+               f"F score = {F1}\n"
+               f"Accuracy = {accuracy*100:.2f}%")
+
+
+
+
+        normal_losses = np.array(normal_losses)
+        abnormal_losses = np.array(abnormal_losses)
+        normal_losses_zoomed = normal_losses[normal_losses <= 2.0]
+        abnormal_losses_zoomed = abnormal_losses[abnormal_losses <= 2.0]
+
+
+        bins_zoomed = np.linspace(0.0, 0.2, 101)  # 100 intervals
+        bins_normal = np.linspace(0, normal_losses.max(), 1001)
+        bins_abnormal = np.linspace(0, abnormal_losses.max(), 1001)
+        fig, ax = plt.subplots(2, 2, figsize=(12, 4))
+        ax[0, 0].hist(normal_losses, bins=bins_normal)
+        ax[0, 1].hist(abnormal_losses, bins=bins_abnormal)
+        ax[1, 0].hist(normal_losses_zoomed, bins=bins_zoomed)
+        ax[1, 1].hist(abnormal_losses_zoomed, bins=bins_zoomed)
+        ax[1, 0].axvline(x=0.03, color='r', linestyle='--', linewidth=2)
+        ax[1, 1].axvline(x=0.03, color='r', linestyle='--', linewidth=2)
+
+
+        ax[0, 0].set_title("Histogramme des pertes des données normales")
+        ax[0, 1].set_title("Histogramme des pertes des données anormales")
+        ax[1, 0].set_title("Histogramme des pertes des données normales (zoomed)")
+        ax[1, 1].set_title("Histogramme des pertes des données anormales (zoomed)")
+        for a in ax.flat:  # FIX 5: correct iteration over axes
+            a.set_xlabel("Reconstruction loss (MSE)")
+            a.set_ylabel("Number of samples")
+            a.grid(True)
+        plt.tight_layout()
+        plt.savefig(f'./figures/histogram/histogramK{k}_all.png')
+
+        plt.show()
+
+
+
+        test_loss /= len(testloader)
+    print(f"test loss : {test_loss}")
