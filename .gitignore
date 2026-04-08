@@ -6,3 +6,6 @@ __pycache__/
 *.pt
 .idea/
 .ipynb_checkpoints
+Devoir 3 - GANs/dataset/
+Devoir 4 - DDPM/dataset/
+Devoir 4 - DDPM/Github-Conditional-Diffusion-Models/
