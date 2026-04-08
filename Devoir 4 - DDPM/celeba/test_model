@@ -1,0 +1,74 @@
+# test_model.py
+import torch
+from torch.utils.data import DataLoader
+from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Lambda
+from PIL import Image
+from glob import glob
+from sklearn.model_selection import train_test_split
+from torch.utils.data import Dataset
+
+from model import ResnetBlock_Cas1, Fenc, UnetCas1
+
+# ── Config ────────────────────────────────────────────────────────────────────
+device     = "cuda" if torch.cuda.is_available() else "cpu"
+image_size = 64
+channels   = 3
+dim        = 64
+cond_dim   = 256
+batch_size = 4
+root       = "./dataset/celeba_hq/"
+
+transform = Compose([
+    Resize(image_size),
+    CenterCrop(image_size),
+    ToTensor(),
+    Lambda(lambda t: (t * 2) - 1),   # [0,1] → [-1,1]
+])
+
+class CelebaDataset(Dataset):
+    def __init__(self, paths):
+        self.paths = paths
+    def __len__(self):
+        return len(self.paths)
+    def __getitem__(self, i):
+        return transform(Image.open(self.paths[i]).convert("RGB"))
+
+paths = glob(root + "**/*.jpg", recursive=True)
+assert len(paths) > 0, f"No images found in {root}"
+train_paths, _ = train_test_split(paths, test_size=0.1)
+dl = DataLoader(CelebaDataset(train_paths), batch_size=batch_size, shuffle=True)
+
+# ── Build model ───────────────────────────────────────────────────────────────
+model = UnetCas1(
+    dim=dim, channels=channels, dim_mults=(1, 2, 4), cond_dim=cond_dim
+).to(device)
+
+# ── Test 1: shapes through a real batch ───────────────────────────────────────
+batch = next(iter(dl)).to(device)                        # [B, 3, 64, 64]
+t     = torch.randint(0, 50, (batch.size(0),)).to(device)
+
+cond  = model.encode(batch)                              # c': [B, 256]
+pred  = model(batch, t, cond)                            # predicted noise: [B, 3, 64, 64]
+
+print(f"batch: {batch.shape}")
+print(f"cond:  {cond.shape}")
+print(f"pred:  {pred.shape}")
+assert pred.shape == batch.shape, "output shape mismatch"
+
+# ── Test 2: single ResnetBlock_Cas1 with real spatial dims ────────────────────
+time_dim = dim * 4
+block = ResnetBlock_Cas1(dim, dim * 2, time_emb_dim=time_dim, cond_dim=cond_dim).to(device)
+
+x_feat   = torch.randn(batch_size, dim, image_size, image_size).to(device)
+time_emb = torch.randn(batch_size, time_dim).to(device)
+cond_vec = torch.randn(batch_size, cond_dim).to(device)
+
+out = block(x_feat, time_emb, cond_vec)
+print(f"ResnetBlock_Cas1: {x_feat.shape} → {out.shape}")
+
+# ── Test 3: Fenc with real image ──────────────────────────────────────────────
+fenc = Fenc(channels=channels, cond_dim=cond_dim).to(device)
+cprime = fenc(batch)
+print(f"Fenc: {batch.shape} → {cprime.shape}")
+
+print("\nAll tests passed.")
