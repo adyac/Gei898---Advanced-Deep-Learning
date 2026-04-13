@@ -1,8 +1,43 @@
-﻿.venv1/
+﻿# Python environments
+.venv1/
 .venv/
+venv/
 .env/
+env/
+
+# Python cache/build
 __pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# IDE/editor
+.idea/
+.vscode/
+
+# Notebook cache
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# ML artifacts (models/checkpoints/logs)
 *.pth
 *.pt
-.idea/
-.ipynb_checkpoints
+*.ckpt
+*.onnx
+runs/
+wandb/
+logs/
+
+# Local datasets (all assignments)
+dataset/
+datasets/
+**/dataset/
+**/datasets/
+
+# Project-specific large folders
+Devoir 3 - GANs/dataset/
+Devoir 4 - DDPM/celeba/dataset/
+Devoir 4 - DDPM/celeba/Github-Conditioned-Diffusion-Models-UAD/
