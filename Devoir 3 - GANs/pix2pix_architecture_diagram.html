@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pix2Pix Architecture - Cable Defect Detection</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .diagram-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .diagram-title {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        
+        .description {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            color: #555;
+            line-height: 1.6;
+        }
+        
+        .specs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .spec-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        
+        .spec-card h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .spec-card p {
+            font-size: 0.95em;
+            color: #666;
+            line-height: 1.5;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+        
+        .tab-btn {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .tab-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .footer {
+            background: #f0f0f0;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Pix2Pix Architecture</h1>
+            <p>Conditional GAN for Cable Defect Detection</p>
+        </div>
+        
+        <div class="content">
+            <!-- TAB NAVIGATION -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
+                <button class="tab-btn" onclick="switchTab('generator')">Generator (U-Net)</button>
+                <button class="tab-btn" onclick="switchTab('discriminator')">Discriminator (PatchGAN)</button>
+                <button class="tab-btn" onclick="switchTab('training')">Training Flow</button>
+                <button class="tab-btn" onclick="switchTab('losses')">Loss Functions</button>
+            </div>
+            
+            <!-- OVERVIEW TAB -->
+            <div id="overview" class="tab-content active">
+                <div class="diagram-section">
+                    <div class="diagram-title">System Architecture Overview</div>
+                    <div class="mermaid">
+graph TD
+    A["Input Image<br/>Cable Defect<br/>128×128 RGB<br/>(-1, 1)"] --> B["Generator<br/>U-Net<br/>Encoder-Decoder"]
+    B --> C["Generated Mask<br/>128×128 1-channel<br/>(-1, 1)"]
+    C --> D["Discriminator<br/>PatchGAN"]
+    A --> E["Concatenate<br/>Condition + Generated"]
+    E --> D
+    D --> F["Classify Real/Fake<br/>7×7 Patch Scores"]
+    A --> G["Ground Truth<br/>Mask<br/>128×128<br/>(-1, 1)"]
+    G --> H["Calculate Loss<br/>L_GAN + λ×L_L1"]
+    C --> H
+    F --> H
+    H --> I["Backpropagation<br/>Update Weights"]
+                    </div>
+                    <div class="description">
+                        <strong>System Architecture:</strong> A cable image with defects enters the Generator (U-Net), which produces a 
+                        binary mask prediction. The Discriminator evaluates whether this mask is realistic by comparing 
+                        pairs of (&lt;condition, mask&gt;). The combined loss (adversarial + reconstruction) guides training.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- GENERATOR TAB -->
+            <div id="generator" class="tab-content">
+                <div class="diagram-section">
+                    <div class="diagram-title">Generator: U-Net Architecture</div>
+                    <div class="mermaid">
+graph TD
+    Input["Input<br/>3 × 128 × 128"]
+    
+    subgraph encoder["ENCODER (Compression)"]
+        E1["Enc Block 1<br/>3 → 64 channels<br/>128 × 128"]
+        E2["Enc Block 2<br/>64 → 128 channels<br/>64 × 64"]
+        E3["Enc Block 3<br/>128 → 256 channels<br/>32 × 32"]
+        E4["Enc Block 4<br/>256 → 512 channels<br/>16 × 16"]
+        
+        E1 --> E2
+        E2 --> E3
+        E3 --> E4
+    end
+    
+    subgraph bottleneck["BOTTLENECK"]
+        BN["512 channels<br/>8 × 8<br/>Max Compression"]
+    end
+    
+    subgraph decoder["DECODER (Reconstruction)"]
+        D4["Dec Block 4<br/>512 → 256 ch<br/>+ Skip E4<br/>16 × 16"]
+        D3["Dec Block 3<br/>256 → 128 ch<br/>+ Skip E3<br/>32 × 32"]
+        D2["Dec Block 2<br/>128 → 64 ch<br/>+ Skip E2<br/>64 × 64"]
+        D1["Dec Block 1<br/>64 → 3 ch<br/>+ Skip E1<br/>128 × 128"]
+        
+        D4 --> D3
+        D3 --> D2
+        D2 --> D1
+    end
+    
+    Output["Output Sigmoid<br/>3 × 128 × 128<br/>(-1, 1)"]
+    
+    Input --> E1
+    E4 --> BN
+    BN --> D4
+    D1 --> Output
+                    </div>
+                    <div class="description">
+                        <strong>U-Net Generator:</strong> 4 encoder blocks compress spatial information while expanding feature dimensions (64→128→256→512). 
+                        The bottleneck captures global context at 8×8 resolution. 4 decoder blocks expand spatial dimensions back while 
+                        concatenating skip connections from each encoder level. This preserves fine spatial details essential for accurate mask localization.
+                    </div>
+                    <div class="specs">
+                        <div class="spec-card">
+                            <h4>Encoder Blocks</h4>
+                            <p>Progressive 2× downsampling with Conv-BN-ReLU and MaxPool operations. Doubles channels at each level.</p>
+                        </div>
+                        <div class="spec-card">
+                            <h4>Skip Connections</h4>
+                            <p>Concatenate encoder features to corresponding decoder blocks. Preserves fine-grained spatial information from each level.</p>
+                        </div>
+                        <div class="spec-card">
+                            <h4>Bottleneck</h4>
+                            <p>512 channels at 8×8 resolution. Represents the most compressed, context-rich feature representation.</p>
+                        </div>
+                        <div class="spec-card">
+                            <h4>Output Activation</h4>
+                            <p>Sigmoid function: outputs range [-1, 1] matching the ground truth normalization for loss computation.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- DISCRIMINATOR TAB -->
+            <div id="discriminator" class="tab-content">
+                <div class="diagram-section">
+                    <div class="diagram-title">Discriminator: PatchGAN Architecture</div>
+                    <div class="mermaid">
+graph TD
+    Cond["Condition Image<br/>3 × 128 × 128<br/>(-1, 1)"]
+    Gen["Generated Mask<br/>3 × 128 × 128<br/>(-1, 1)"]
+    
+    Or["OR"]
+    
+    Real["Ground Truth<br/>3 × 128 × 128<br/>(-1, 1)"]
+    
+    Cond --> Cat["CONCATENATE<br/>Axis=1 Channels"]
+    Gen --> Cat
+    Real --> Cat
+    
+    Concat["6 × 128 × 128<br/>Stacked Condition + Image"]
+    
+    Cat --> Concat
+    
+    subgraph patchgan["PATCHGAN (Discriminator)"]
+        D1["Conv Block 1<br/>6 → 64 ch, kernel 4<br/>stride 2, padding 1<br/>64 × 64"]
+        D2["Conv Block 2<br/>64 → 128 ch<br/>+ BN + LeakyReLU 0.2<br/>+ Dropout 0.0<br/>32 × 32"]
+        D3["Conv Block 3<br/>128 → 256 ch<br/>+ BN + LeakyReLU 0.2<br/>+ Dropout 0.3<br/>16 × 16"]
+        D4["Conv Block 4<br/>256 → 512 ch<br/>+ BN + LeakyReLU 0.2<br/>+ Dropout 0.3<br/>8 × 8"]
+        D5["Output Conv<br/>512 → 1 ch<br/>7 × 7 Patch Scores"]
+        
+        D1 --> D2
+        D2 --> D3
+        D3 --> D4
+        D4 --> D5
+    end
+    
+    Concat --> D1
+    
+    Out["Patch Scores<br/>1 × 7 × 7<br/>Each patch = real/fake<br/>confidence"]
+    
+    D5 --> Out
+                    </div>
+                    <div class="description">
+                        <strong>PatchGAN Discriminator:</strong> Instead of classifying the entire image, PatchGAN outputs a 7×7 grid of patch-level scores. 
+                        Each cell independently predicts whether a 16×16 patch is real or fake. This encourages fine-grained realism at the local level 
+                        rather than global coherence, which is ideal for detailed mask generation.
+                    </div>
+                    <div class="specs">
+                        <div class="spec-card">
+                            <h4>Input Concatenation</h4>
+                            <p>Condition (3 channels) + Image (3 channels) = 6 channels. Allows discriminator to evaluate correspondence.</p>
+                        </div>
+                        <div class="spec-card">
+                            <h4>Progressive Downsampling</h4>
+                            <p>4 Conv blocks with 2× downsampling reduce resolution from 128×128 to 8×8, creating receptive field of ~70×70.</p>
+                        </div>
+                        <div class="spec-card">
+                            <h4>Patch-Based Output</h4>
+                            <p>7×7 grid of scores (not a single binary classification). Captures local realism across the entire image.</p>
+                        </div>
+                        <div class="spec-card">
+                            <h4>Dropout Regularization</h4>
+                            <p>0.3 dropout on layers 3-4 prevents discriminator overfitting and ensures stable adversarial training.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- TRAINING FLOW TAB -->
+            <div id="training" class="tab-content">
+                <div class="diagram-section">
+                    <div class="diagram-title">Training Loop Flow</div>
+                    <div class="mermaid">
+graph TD
+    A["Load Batch<br/>B images + B masks<br/>Batch Size = 4"]
+    
+    B["Forward Pass: Generator<br/>G(condition) → fake_mask']"]
+    
+    C["Forward Pass: Discriminator<br/>Real: D(cond, real_mask)<br/>Fake: D(cond, fake_mask)"]
+    
+    subgraph loss_calc["Loss Calculation"]
+        D1["Hinge Loss<br/>max(0, 1 - D_real)<br/>+ max(0, 1 + D_fake)"]
+        D2["BCE Loss<br/>Binary Classification<br/>Loss"]
+        D3["L1 Loss<br/>Reconstruction<br/>Smoothness"]
+        D4["Combined:<br/>L_G = HingeLoss<br/>+ 2.0 × (BCE + 0.5×L1)"]
+        
+        D1 --> D4
+        D2 --> D4
+        D3 --> D4
+    end
+    
+    E["Update Discriminator<br/>∇D_loss, backward()<br/>D_optimizer.step()"]
+    
+    F["Update Generator<br/>∇G_loss, backward()<br/>G_optimizer.step()"]
+    
+    G{{"More<br/>Epochs?"}}
+    
+    H["Epoch Complete<br/>Evaluate on Validation Set"]
+    
+    I["Model Saved<br/>pix2pix_generator.pth<br/>pix2pix_discriminator.pth"]
+    
+    A --> B
+    B --> C
+    C --> loss_calc
+    D4 --> E
+    E --> F
+    F --> H
+    H --> G
+    G -->|Yes| A
+    G -->|No| I
+                    </div>
+                    <div class="description">
+                        <strong>Training Loop:</strong> Each epoch:
+                        1) Load a batch of paired images and masks
+                        2) Generate fake masks using current generator
+                        3) Evaluate both real and fake masks with discriminator
+                        4) Compute combined loss (HingeLoss + 2.0 × reconstruction)
+                        5) Update discriminator first, then generator
+                        6) Evaluate on validation set after each epoch
+                        7) Repeat for 500 epochs with early stopping if validation loss plateaus
+                    </div>
+                </div>
+            </div>
+            
+            <!-- LOSS FUNCTIONS TAB -->
+            <div id="losses" class="tab-content">
+                <div class="diagram-section">
+                    <div class="diagram-title">Combined Loss Function</div>
+                    <div class="mermaid">
+graph TD
+    subgraph gen["GENERATOR LOSS"]
+        G1["Hinge Loss<br/>max(0, 1 - D_fake)"]
+        G2["BCE Loss<br/>Binary Cross-Entropy<br/>Pixel Classification"]
+        G3["L1 Loss<br/>Mean Absolute Error<br/>Spatial Smoothness"]
+        
+        G1 -->|1.0 weight| Sum
+        G2 -->|2.0 weight| Sum
+        G3 -->|1.0 weight<br/>multiplied by 2.0| Sum
+        
+        Sum["L_G = Hinge<br/>+ 2.0×(BCE + 0.5×L1)"]
+    end
+    
+    subgraph disc["DISCRIMINATOR LOSS"]
+        D1["Real Loss<br/>max(0, 1 - D_real)"]
+        D2["Fake Loss<br/>max(0, 1 + D_fake)"]
+        
+        D1 -->|0.5 weight| Disc_Sum
+        D2 -->|0.5 weight| Disc_Sum
+        
+        Disc_Sum["L_D = 0.5×(D_real_loss<br/>+ D_fake_loss)"]
+    end
+    
+    Backprop["Backpropagation<br/>Adam Optimizer<br/>lr_G = 1e-4<br/>lr_D = 2.5e-5"]
+    
+    Gen --> Backprop
+    Disc --> Backprop
+                    </div>
+                    <div class="description">
+                        <strong>Loss Components:</strong>
+                        <ul style="margin-top: 10px; margin-left: 20px;">
+                            <li><strong>Hinge Loss:</strong> max(0, 1 - D_fake) for adversarial training. More stable than BCE for GANs.</li>
+                            <li><strong>BCE Loss (2.0×):</strong> Binary cross-entropy for pixel-level classification (defect vs non-defect).</li>
+                            <li><strong>L1 Loss (0.5×):</strong> Encourages spatial smoothness while reducing bias toward gray outputs.</li>
+                            <li><strong>Label Smoothing (α=0.2):</strong> Real labels = 0.8 instead of 1.0, prevents discriminator overfitting.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Pix2Pix Architecture Diagram | GEI898 - Apprentissage Profond Avancé | Cable Defect Detection</p>
+            <p>Generated with Mermaid.js - Right-click on diagrams to save as SVG/PNG</p>
+        </div>
+    </div>
+    
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose' });
+        
+        function switchTab(tabName) {
+            // Hide all tabs
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(content => content.classList.remove('active'));
+            
+            // Remove active class from all buttons
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+            
+            // Re-render mermaid diagrams
+            mermaid.contentLoaded();
+        }
+    </script>
+</body>
+</html>
