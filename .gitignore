@@ -27,3 +27,14 @@ Thumbs.db
 *.pt
 .idea/
 .ipynb_checkpoints
+
+# Documents
+*.pdf
+*.html
+*.pptx
+
+# Datasets
+dataset/
+datasets/
+data/
+celeba/
